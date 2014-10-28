@@ -3,58 +3,29 @@
         <meta charset="utf-8">
         <title>Sketch your Boundary Elements</title>
         <link rel="stylesheet" href="master.css">
+        <script src="mousetrap.min.js"></script>
         <script src="jquery-2.1.1.js"></script>
         <script src="fabricjs.js"></script>
+        <script src="main.js"></script>
     </head>
-    <body>
+    <body onload="init()">
         <div style="text-align: center">
             <div id="buttons">
-                <a href="#" class="myButton">Traction</a>
-                <a href="#" class="myButton">Displacement</a>
-                <a href="#" class="myButton">Crack Traction</a>
-                <a href="#" class="myButton">Crack Displacement</a>
-                <a href="#" class="myButton">Compute</a>
-                <a href="#" class="myButton">Save</a>
-                <a href="#" class="myButton">Load</a>
+                <a href="#" id="trac_btn" class="myButton">Traction</a>
+                <a href="#" id="disp_btn" class="myButton">Displacement</a>
+                <a href="#" id="ct_btn" class="myButton">Crack Traction</a>
+                <a href="#" id="cd_btn" class="myButton">Crack Displacement</a>
+                <a href="#" id="comp_btn" class="myButton">Compute</a>
+                <a href="#" id="save_btn" class="myButton">Save</a>
+                <a href="#" id="load_btn" class="myButton">Load</a>
             </div>
         </div>
         <div id="value_input_wrapper">
             <div id="value_input_text">Type a value and press enter.</div><br>
-            <input id="value_input" class="mytextbox" type="text"></input>
+            <input id="value_input" class="mytextbox mousetrap" type="text" 
+                onkeyup="this.value=this.value.replace(/[^0-9.]/g, '')">
+            </input>
         </div>
         <canvas id="c" width="800px" height="650px"></canvas>
-        <script>
-        // create a wrapper around native canvas element (with id="c")
-        var canvas = new fabric.Canvas('c');
-        canvas.isDrawingMode = false;
-        canvas.selection = true;
-
-        var line, isDown;
-        // document.getElementById("value_input_wrapper").style.display = 'block';
-
-        canvas.on('mouse:down', function(o){
-            isDown = true;
-            var pointer = canvas.getPointer(o.e);
-            var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
-            line = new fabric.Line(points, {
-                stroke: '#898989',
-                strokeWidth: 4,
-                originX: 'center',
-                originY: 'center'
-            });
-            canvas.add(line);
-        });
-        canvas.on('mouse:move', function(o){
-            if (!isDown) return;
-            var pointer = canvas.getPointer(o.e);
-            line.set({ x2: pointer.x, y2: pointer.y });
-            canvas.renderAll();
-            line.setCoords();
-        });
-        canvas.on('mouse:up', function(o){
-            isDown = false;
-            canvas.off('mouse:down');
-        });
-        </script>
     </body>
 </html>
