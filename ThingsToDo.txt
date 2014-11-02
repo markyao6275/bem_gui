@@ -1,0 +1,5 @@
+Current Plan:
+
+Mark:
+- Code up working prototype of drawing tool discussed in meeting (11/08)
+- Look into other libraries that may be useful (11/08)
