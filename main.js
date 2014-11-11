@@ -44,17 +44,19 @@ function initDraw(line_type)
     // Initialize the new line drawer. It won't do anything until the click
     // handlers are initialized when the textbox is filled.
     curLineDrawer = new LineDrawer(line_type);
-    $('#value_input_wrapper').show();
-    $('#value_input').focus();
+    initLine()
+    // $('#value_input_wrapper').show();
+    // $('#value_input').focus();
+
 }
 
 function initLine()
 {
-    if (!$('#value_input_wrapper').is(":visible"))
-    {
-        return;
-    }
-    $('#value_input_wrapper').hide();
+    // if (!$('#value_input_wrapper').is(":visible"))
+    // {
+    //     return;
+    // }
+    // $('#value_input_wrapper').hide();
 
     // Set the line drawer to listen;
     canvas.on('mouse:down', function(o) {curLineDrawer.startLine(o)});
@@ -63,6 +65,7 @@ function initLine()
 function LineDrawer(line_type)
 {
     this.lineStarted = false;
+    this.drawingBoundary = false;
     this.line_type = line_type;
 }
 
@@ -72,15 +75,46 @@ LineDrawer.prototype.updateLine = function(o){
         return;
     }
     var pointer = canvas.getPointer(o.e);
-    this.line.set({ x2: pointer.x, y2: pointer.y });
+
+    if (this.drawingBoundary)
+    {
+        this.boundary.set({ x2: pointer.x, y2: pointer.y });
+        this.boundary.setCoords();
+    }
+    else
+    {
+        this.line.set({ x2: pointer.x, y2: pointer.y });
+        this.line.setCoords();
+    }
     canvas.renderAll();
-    this.line.setCoords();
 }
 
 LineDrawer.prototype.finishLine = function(o) {
-    this.lineStarted = false;
-    canvas.off('mouse:move');
-    canvas.off('mouse:up');
+    if (!this.drawingBoundary)
+    {   
+        this.drawingBoundary = true;
+        var midPoint = this.line.getCenterPoint();
+        var boundaryPoints = [midPoint.x, midPoint.y, midPoint.x, midPoint.y]
+        this.boundary = new fabric.Line(boundaryPoints, {
+            stroke: line_colors[this.line_type],
+            strokeWidth: 4,
+            originX: 'center',
+            originY: 'center'
+        });
+        canvas.add(this.boundary);
+        me = this;
+        canvas.off('mouse:up');
+        canvas.on('mouse:move', function(o) {me.updateLine(o)});
+        canvas.on('mouse:down', function(o) {me.finishLine(o);});
+    }
+    else
+    {
+        this.lineStarted = false;
+        this.drawingBoundary = false;
+        canvas.off('mouse:move');
+        canvas.off('mouse:up');
+        canvas.off('mouse:down');
+    }
 }
 
 LineDrawer.prototype.startLine = function(o) {
@@ -105,4 +139,17 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:move');
     canvas.off('mouse:up');
 }
+
+function save() {
+    // TO DO
+}
+
+function load(){
+    // TO DO
+}
+
+function compute(){
+    // ASK BEN HOW TO DO
+}
+
 
