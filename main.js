@@ -6,6 +6,7 @@ line_colors = {
 };
 
 var canvas;
+var bg;
 var curLineDrawer;
 
 function init()
@@ -21,6 +22,7 @@ function init()
     $('#ct_btn').click(function() {initDraw("ct")});
     $('#cd_btn').click(function() {initDraw("cd")});
     $('#comp_btn').click(function() {compute()});
+    $('#img_btn').click(function() {uploadBackground()});
     $('#save_btn').click(function() {save()});
     $('#load_btn').click(function() {load()});
 
@@ -67,6 +69,7 @@ function LineDrawer(line_type)
     this.lineStarted = false;
     this.drawingBoundary = false;
     this.line_type = line_type;
+    //this.lineBoundaryGroup = new fabric.Group();
 }
 
 LineDrawer.prototype.updateLine = function(o){
@@ -109,6 +112,11 @@ LineDrawer.prototype.finishLine = function(o) {
     }
     else
     {
+        canvas.remove(this.line)
+        canvas.remove(this.boundary);
+        var group = new fabric.Group([this.line, this.boundary],{
+        });
+        canvas.add(group);
         this.lineStarted = false;
         this.drawingBoundary = false;
         canvas.off('mouse:move');
@@ -121,13 +129,16 @@ LineDrawer.prototype.startLine = function(o) {
     this.lineStarted = true;
     var pointer = canvas.getPointer(o.e);
     var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
+    
     this.line = new fabric.Line(points, {
         stroke: line_colors[this.line_type],
         strokeWidth: 4,
         originX: 'center',
         originY: 'center'
     });
+    //canvas.add(lineBoundaryGroup);
     canvas.add(this.line);
+    //lineBoundaryGroup.add(this.line);
     me = this;
     canvas.off('mouse:down');
     canvas.on('mouse:move', function(o) {me.updateLine(o)});
@@ -140,8 +151,38 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:up');
 }
 
+function uploadBackground(){
+    $('#image_uploader_wrapper').show();
+}
+
+function loadBackground(event) {
+    $('#image_uploader_wrapper').hide();
+    console.log('detected image!')
+    var input = event.target;
+    var imgReader = new FileReader();
+
+    imgReader.onload = function(){
+        var bg = new Image();
+        bg.src = imgReader.result;
+        canvas.setBackgroundImage(bg.src, canvas.renderAll.bind(canvas));
+    };
+    imgReader.readAsDataURL(input.files[0]);
+}
+
 function save() {
     // TO DO
+    objects = canvas.getObjects();
+    console.log('Format: x1, y1, x2, y2\n')
+    objects.forEach(function(obj){
+        info = obj.toJSON().objects;
+        
+        // for CSV printing
+        line = [info[0].x1, info[0].y1, info[0].x2, info[0].y2];
+        boundary = [info[1].x1, info[1].y1, info[1].x2, info[1].y2];
+
+        console.log('Line: ' + info[0].x1 + ', ' + info[0].y1 + ', ' + info[0].x2 + ', ' + info[0].y2 + '\n');
+        console.log('Boundary: ' + info[1].x1 + ', ' + info[1].y1 + ', ' + info[1].x2 + ', ' + info[1].y2 + '\n');
+    });
 }
 
 function load(){
