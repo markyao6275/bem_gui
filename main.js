@@ -152,20 +152,34 @@ LineDrawer.prototype.kill = function() {
 }
 
 function uploadBackground(){
+    // show dialog box that asks for an image upload
     $('#image_uploader_wrapper').show();
 }
 
 function loadBackground(event) {
+    // hide image upload dialog box
     $('#image_uploader_wrapper').hide();
-    console.log('detected image!')
+
     var input = event.target;
     var imgReader = new FileReader();
 
+    // run the function when an image is uploaded
     imgReader.onload = function(){
-        var bg = new Image();
-        bg.src = imgReader.result;
-        canvas.setBackgroundImage(bg.src, canvas.renderAll.bind(canvas));
+        var uploadedImg = new Image();
+
+        // set this to the uploaded image
+        uploadedImg.src = imgReader.result;
+
+        // created new fabric.Image object that is scaled to the canvas properly
+        var fabricImg = new fabric.Image(uploadedImg, {
+            scaleX: canvas.width/uploadedImg.width,
+            scaleY: canvas.height/uploadedImg.height
+        });
+
+        // set the canvas's background image
+        canvas.setBackgroundImage(fabricImg, canvas.renderAll.bind(canvas));
     };
+
     imgReader.readAsDataURL(input.files[0]);
 }
 
