@@ -137,6 +137,7 @@ LineDrawer.prototype.finishLine = function(o) {
             left: Math.min(this.line.x1, this.line.x2, this.boundary.x2),
             top: Math.min(this.line.y1, this.line.y2, this.boundary.y2)
         });
+        group.line_type = this.line_type;
         canvas.add(group);
 
         // set the correct modes
@@ -219,19 +220,45 @@ function deleteSelection(){
 
 
 function save() {
-    // TO DO
     objects = canvas.getObjects();
-    console.log('Format: x1, y1, x2, y2\n')
-    objects.forEach(function(obj){
-        info = obj.toJSON().objects;
-        
-        // for CSV printing
-        line = [info[0].x1, info[0].y1, info[0].x2, info[0].y2];
-        boundary = [info[1].x1, info[1].y1, info[1].x2, info[1].y2];
 
-        console.log('Line: ' + info[0].x1 + ', ' + info[0].y1 + ', ' + info[0].x2 + ', ' + info[0].y2 + '\n');
-        console.log('Boundary: ' + info[1].x1 + ', ' + info[1].y1 + ', ' + info[1].x2 + ', ' + info[1].y2 + '\n');
+    // each element of csvContentArray is one line of the CSV
+    var csvContentArray = [];
+    
+    // enter the column headers
+    var csvHeaders = ['LineType', 'Line_x1', 'Line_y1', 'Line_x2', 'Line_y2', 'Boundary_x1', 'Boundary_y1', 'Boundary_x2', 'Boundary_y2'];
+    csvContentArray.push(csvHeaders);
+
+    // for each objects
+    // this assumes the only objects on the canvas are lines
+    objects.forEach(function(obj){
+
+        // turn them into JSON for easy access
+        info = obj.toJSON().objects;
+
+        // get line_data and boundary_data
+        line_data = [info[0].x1, info[0].y1, info[0].x2, info[0].y2];
+        boundary_data = [info[1].x1, info[1].y1, info[1].x2, info[1].y2];
+
+        // concatenate line_data and boundary_data
+        all_data = line_data.concat(boundary_data);
+
+        // add the type of line
+        data_with_label = [obj.line_type,].concat(all_data);
+
+        // turn this data into a CSV string
+        var dataString = data_with_label.join(',');
+
+        // add this to the content array
+        csvContentArray.push(dataString);
     });
+
+    // add all the entries in csvContentArray, with newline characters
+    var csvContent = "data:text/csv;charset=utf-8," + csvContentArray.join("\n");
+
+    // download the CSV file
+    var encodedUri = encodeURI(csvContent);
+    window.open(encodedUri);
 }
 
 function load(){
