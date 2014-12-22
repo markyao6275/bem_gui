@@ -49,6 +49,9 @@ function initDraw(line_type)
 
     // Initialize the new line drawer. It won't do anything until the click
     // handlers are initialized when the textbox is filled.
+    canvas.forEachObject(function(obj){
+        obj.selectable = false;
+    });
     curLineDrawer = new LineDrawer(line_type);
     initLine()
 
@@ -76,7 +79,6 @@ function LineDrawer(line_type)
     this.lineStarted = false;
     this.drawingBoundary = false;
     this.line_type = line_type;
-    //this.lineBoundaryGroup = new fabric.Group();
 }
 
 LineDrawer.prototype.updateLine = function(o){
@@ -89,17 +91,17 @@ LineDrawer.prototype.updateLine = function(o){
     if (this.drawingBoundary)
     {
         this.boundary.set({ x2: pointer.x, y2: pointer.y });
-        this.boundary.setCoords();
     }
     else
     {
         this.line.set({ x2: pointer.x, y2: pointer.y });
-        this.line.setCoords();
     }
     canvas.renderAll();
 }
 
 LineDrawer.prototype.finishLine = function(o) {
+    me.kill();
+
     if (!this.drawingBoundary)
     {   
         this.drawingBoundary = true;
@@ -113,7 +115,6 @@ LineDrawer.prototype.finishLine = function(o) {
         });
         canvas.add(this.boundary);
         me = this;
-        canvas.off('mouse:up');
         canvas.on('mouse:move', function(o) {me.updateLine(o)});
         canvas.on('mouse:down', function(o) {me.finishLine(o);});
     }
@@ -129,8 +130,15 @@ LineDrawer.prototype.finishLine = function(o) {
         // calculate the scaling constant to normalize the boundary condition
         var scalingConstant = NORM_VEC_MAGNITUDE/Math.sqrt((Math.pow(boundaryWidth, 2) + Math.pow(boundaryHeight, 2)));
 
+        console.log(scalingConstant);
         // normalize the boundary vector
-        this.boundary.set({x2 : this.boundary.x1 + scalingConstant*boundaryWidth, y2: this.boundary.y1 + scalingConstant*boundaryHeight});
+        this.boundary.set({
+            x2 : this.boundary.x1 + scalingConstant*boundaryWidth,
+            y2: this.boundary.y1 + scalingConstant*boundaryHeight
+        });
+
+        console.log('x1: ' + this.boundary.x1 + ', x2: ' + this.boundary.x2);
+        console.log('y1: ' + this.boundary.y1 + ', y2: ' + this.boundary.y2);
 
         // create a group with the line and the boundary and draw it
         var group = new fabric.Group([this.line, this.boundary],{
@@ -143,15 +151,15 @@ LineDrawer.prototype.finishLine = function(o) {
         // set the correct modes
         this.lineStarted = false;
         this.drawingBoundary = false;
-        canvas.off('mouse:move');
-        canvas.off('mouse:up');
-        canvas.off('mouse:down');
-        canvas.selection = true;
+
+        canvas.forEachObject(function(obj){
+            obj.selectable = true;
+        });
     }
 }
 
 LineDrawer.prototype.startLine = function(o) {
-    canvas.selection = false;
+    canvas.off('mouse:down');
     this.lineStarted = true;
     var pointer = canvas.getPointer(o.e);
     var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
@@ -162,13 +170,12 @@ LineDrawer.prototype.startLine = function(o) {
         originX: 'center',
         originY: 'center'
     });
-    //canvas.add(lineBoundaryGroup);
+
     canvas.add(this.line);
-    //lineBoundaryGroup.add(this.line);
     me = this;
-    canvas.off('mouse:down');
+    
     canvas.on('mouse:move', function(o) {me.updateLine(o)});
-    canvas.on('mouse:up', function(o) {me.finishLine(o);});
+    canvas.on('mouse:down', function(o) {me.finishLine(o);});
 }
 
 LineDrawer.prototype.kill = function() {
