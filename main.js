@@ -6,8 +6,9 @@ line_colors = {
 };
 
 var canvas;
-var bg;
 var curLineDrawer;
+var LINE_WIDTH = 2;
+var NORM_VEC_MAGNITUDE = 50;
 
 function init()
 {
@@ -31,7 +32,10 @@ function init()
     Mousetrap.bind('t', function() {initDraw("trac")});
     Mousetrap.bind('c', function() {initDraw("ct")});
     Mousetrap.bind('f', function() {initDraw("cd")});
-    Mousetrap.bind('enter', function() {initLine();});
+    Mousetrap.bind('backspace', function() {deleteSelection()});
+    
+    // currently not needed since we're not explicitly entering values
+    // Mousetrap.bind('enter', function() {initLine();});
 
 }
 
@@ -47,6 +51,8 @@ function initDraw(line_type)
     // handlers are initialized when the textbox is filled.
     curLineDrawer = new LineDrawer(line_type);
     initLine()
+
+    // currently not needed since we're not explicitly entering values
     // $('#value_input_wrapper').show();
     // $('#value_input').focus();
 
@@ -54,6 +60,7 @@ function initDraw(line_type)
 
 function initLine()
 {
+    // currently not needed since we're not explicitly entering values
     // if (!$('#value_input_wrapper').is(":visible"))
     // {
     //     return;
@@ -100,7 +107,7 @@ LineDrawer.prototype.finishLine = function(o) {
         var boundaryPoints = [midPoint.x, midPoint.y, midPoint.x, midPoint.y]
         this.boundary = new fabric.Line(boundaryPoints, {
             stroke: line_colors[this.line_type],
-            strokeWidth: 4,
+            strokeWidth: LINE_WIDTH,
             originX: 'center',
             originY: 'center'
         });
@@ -112,27 +119,45 @@ LineDrawer.prototype.finishLine = function(o) {
     }
     else
     {
+        // the below method of handling line drawing can probably still be improved
+
         canvas.remove(this.line)
         canvas.remove(this.boundary);
+        var boundaryHeight = this.boundary.y2 - this.boundary.y1;
+        var boundaryWidth = this.boundary.x2 - this.boundary.x1;
+
+        // calculate the scaling constant to normalize the boundary condition
+        var scalingConstant = NORM_VEC_MAGNITUDE/Math.sqrt((Math.pow(boundaryWidth, 2) + Math.pow(boundaryHeight, 2)));
+
+        // normalize the boundary vector
+        this.boundary.set({x2 : this.boundary.x1 + scalingConstant*boundaryWidth, y2: this.boundary.y1 + scalingConstant*boundaryHeight});
+
+        // create a group with the line and the boundary and draw it
         var group = new fabric.Group([this.line, this.boundary],{
+            left: Math.min(this.line.x1, this.line.x2, this.boundary.x2),
+            top: Math.min(this.line.y1, this.line.y2, this.boundary.y2)
         });
         canvas.add(group);
+
+        // set the correct modes
         this.lineStarted = false;
         this.drawingBoundary = false;
         canvas.off('mouse:move');
         canvas.off('mouse:up');
         canvas.off('mouse:down');
+        canvas.selection = true;
     }
 }
 
 LineDrawer.prototype.startLine = function(o) {
+    canvas.selection = false;
     this.lineStarted = true;
     var pointer = canvas.getPointer(o.e);
     var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
     
     this.line = new fabric.Line(points, {
         stroke: line_colors[this.line_type],
-        strokeWidth: 4,
+        strokeWidth: LINE_WIDTH,
         originX: 'center',
         originY: 'center'
     });
@@ -182,6 +207,16 @@ function loadBackground(event) {
 
     imgReader.readAsDataURL(input.files[0]);
 }
+
+function deleteSelection(){
+    if (canvas.getActiveGroup()){
+        canvas.getActiveGroup().forEachObject(function(obj){ canvas.remove(obj)});
+        canvas.discardActiveGroup.renderAll();
+    } else {
+        canvas.remove(canvas.getActiveObject());
+    }
+}
+
 
 function save() {
     // TO DO
