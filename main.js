@@ -32,7 +32,6 @@ function init()
     Mousetrap.bind('t', function() {initDraw("trac")});
     Mousetrap.bind('c', function() {initDraw("ct")});
     Mousetrap.bind('f', function() {initDraw("cd")});
-    Mousetrap.bind('x', function() {testLine()});
     Mousetrap.bind('backspace', function() {deleteSelection()});
     
     // currently not needed since we're not explicitly entering values
@@ -61,6 +60,11 @@ function initDraw(line_type)
     // $('#value_input').focus();
 
 }
+
+/*
+FOR DRAWING LINES
+ */
+
 
 function initLine()
 {
@@ -120,9 +124,8 @@ LineDrawer.prototype.finishLine = function(o) {
         canvas.on('mouse:down', function(o) {me.finishLine(o);});
     }
     else
+    // the below method of handling line drawing can probably still be improved
     {
-        // the below method of handling line drawing can probably still be improved
-
         canvas.remove(this.line)
         canvas.remove(this.boundary);
         var boundaryHeight = this.boundary.y2 - this.boundary.y1;
@@ -181,6 +184,11 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:up');
 }
 
+
+/*
+FOR LOADING BACKGROUND IMAGES
+*/
+
 function showBackgroundUploader(){
     // show dialog box that asks for an image upload
     $('#image_uploader_wrapper').show();
@@ -213,15 +221,10 @@ function loadBackground(event) {
     imgReader.readAsDataURL(input.files[0]);
 }
 
-function deleteSelection(){
-    if (canvas.getActiveGroup()){
-        canvas.getActiveGroup().forEachObject(function(obj){ canvas.remove(obj)});
-        canvas.discardActiveGroup.renderAll();
-    } else {
-        canvas.remove(canvas.getActiveObject());
-    }
-}
 
+/*
+FOR SAVING THE LINES & OBJECTS
+ */
 
 function save() {
     objects = canvas.getObjects();
@@ -266,10 +269,13 @@ function save() {
     window.open(encodedUri);
 }
 
+/*
+FOR DRAWING LINES FROM AN UPLOADED CSV
+ */
+
 function showCSVUploader(){
     $('#csv_uploader_wrapper').show();
 }
-
 
 function loadCSV(event){
     $('#csv_uploader_wrapper').hide();
@@ -282,6 +288,7 @@ function loadCSV(event){
         var uploadedCSV = csvReader.result;
         
         var lines = $.csv.toObjects(uploadedCSV);
+        console.log(lines);
         
         var numLines = lines.length;
 
@@ -328,18 +335,22 @@ function drawLineFromObj(obj){
     canvas.add(group);
 }
 
-function testLine(){
-    var coords = [512.5,77,723.5,109];
+/*
+FOR DELETING LINES & OBJECTS
+ */
 
-    var line = new fabric.Line(coords,{
-        stroke: line_colors['trac'],
-        strokeWidth: LINE_WIDTH,
-        originX: 'center',
-        originY: 'center'    
-    });
-    canvas.add(line);
+function deleteSelection(){
+    if (canvas.getActiveGroup()){
+        canvas.getActiveGroup().forEachObject(function(obj){ canvas.remove(obj)});
+        canvas.discardActiveGroup.renderAll();
+    } else {
+        canvas.remove(canvas.getActiveObject());
+    }
 }
 
+/*
+STUFF THAT STILL NEEDS TO BE DONE
+ */
 
 function compute(){
     // ASK BEN HOW TO DO
