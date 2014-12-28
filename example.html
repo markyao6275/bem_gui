@@ -7,6 +7,7 @@
         <script src="jquery-2.1.1.js"></script>
         <script src="fabricjs.js"></script>
         <script src="main.js"></script>
+        <script src="jquery.csv-0.71.min.js"></script>
     </head>
     <body onload="init()">
         <div style="text-align: center">
@@ -16,16 +17,26 @@
                 <a href="#" id="ct_btn" class="myButton">Crack Traction</a>
                 <a href="#" id="cd_btn" class="myButton">Crack Displacement</a>
                 <a href="#" id="comp_btn" class="myButton">Compute</a>
+                <a href="#" id="img_btn" class="myButton">Background</a>
                 <a href="#" id="save_btn" class="myButton">Save</a>
                 <a href="#" id="load_btn" class="myButton">Load</a>
             </div>
         </div>
-        <div id="value_input_wrapper">
+<!--         currently not needed since we're not explicitly entering values -->
+<!--         <div id="value_input_wrapper">
             <div id="value_input_text">Type a value and press enter.</div><br>
             <input id="value_input" class="mytextbox mousetrap" type="text" 
                 onkeyup="this.value=this.value.replace(/[^0-9.]/g, '')">
             </input>
+        </div> -->
+        <div id="image_uploader_wrapper" class="uploader_wrapper">
+            <div id="image_uploader_text">Please choose an image to upload.</div><br>
+            <input type="file" id="image_uploader" class="uploader_text" onchange='loadBackground(event)'>
         </div>
-        <canvas id="c" width="800px" height="650px"></canvas>
+        <div id="csv_uploader_wrapper" class="uploader_wrapper">
+            <div id="csv_uploader_text" class="uploader_text"> Please choose a file to upload.</div><br>
+            <input type="file" id="csv_uploader" onchange='loadCSV(event)'>
+        </div>
+        <canvas id="c" class = "canvas" width="800px" height="650px"></canvas>
     </body>
 </html>

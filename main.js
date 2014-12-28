@@ -23,15 +23,16 @@ function init()
     $('#ct_btn').click(function() {initDraw("ct")});
     $('#cd_btn').click(function() {initDraw("cd")});
     $('#comp_btn').click(function() {compute()});
-    $('#img_btn').click(function() {uploadBackground()});
+    $('#img_btn').click(function() {showBackgroundUploader()});
     $('#save_btn').click(function() {save()});
-    $('#load_btn').click(function() {load()});
+    $('#load_btn').click(function() {showCSVUploader()});
 
     // Set the key bindings
     Mousetrap.bind('d', function() {initDraw("disp")});
     Mousetrap.bind('t', function() {initDraw("trac")});
     Mousetrap.bind('c', function() {initDraw("ct")});
     Mousetrap.bind('f', function() {initDraw("cd")});
+    Mousetrap.bind('x', function() {testLine()});
     Mousetrap.bind('backspace', function() {deleteSelection()});
     
     // currently not needed since we're not explicitly entering values
@@ -130,15 +131,11 @@ LineDrawer.prototype.finishLine = function(o) {
         // calculate the scaling constant to normalize the boundary condition
         var scalingConstant = NORM_VEC_MAGNITUDE/Math.sqrt((Math.pow(boundaryWidth, 2) + Math.pow(boundaryHeight, 2)));
 
-        console.log(scalingConstant);
         // normalize the boundary vector
         this.boundary.set({
-            x2 : this.boundary.x1 + scalingConstant*boundaryWidth,
+            x2: this.boundary.x1 + scalingConstant*boundaryWidth,
             y2: this.boundary.y1 + scalingConstant*boundaryHeight
         });
-
-        console.log('x1: ' + this.boundary.x1 + ', x2: ' + this.boundary.x2);
-        console.log('y1: ' + this.boundary.y1 + ', y2: ' + this.boundary.y2);
 
         // create a group with the line and the boundary and draw it
         var group = new fabric.Group([this.line, this.boundary],{
@@ -184,7 +181,7 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:up');
 }
 
-function uploadBackground(){
+function showBackgroundUploader(){
     // show dialog box that asks for an image upload
     $('#image_uploader_wrapper').show();
 }
@@ -233,7 +230,8 @@ function save() {
     var csvContentArray = [];
     
     // enter the column headers
-    var csvHeaders = ['LineType', 'Line_x1', 'Line_y1', 'Line_x2', 'Line_y2', 'Boundary_x1', 'Boundary_y1', 'Boundary_x2', 'Boundary_y2'];
+    var csvHeaders = ['LineType', 'Line_x1', 'Line_y1', 'Line_x2', 'Line_y2',
+                    'Boundary_x1', 'Boundary_y1', 'Boundary_x2', 'Boundary_y2'];
     csvContentArray.push(csvHeaders);
 
     // for each objects
@@ -268,9 +266,80 @@ function save() {
     window.open(encodedUri);
 }
 
-function load(){
-    // TO DO
+function showCSVUploader(){
+    $('#csv_uploader_wrapper').show();
 }
+
+
+function loadCSV(event){
+    $('#csv_uploader_wrapper').hide();
+
+    var input = event.target;
+    var csvReader = new FileReader();
+
+    // run the function when a CSV is uploaded
+    csvReader.onload = function(){
+        var uploadedCSV = csvReader.result;
+        
+        var lines = $.csv.toObjects(uploadedCSV);
+        
+        var numLines = lines.length;
+
+        for (i = 0; i < numLines; i++){
+            drawLineFromObj(lines[i]);
+        }
+    };
+
+    csvReader.readAsText(input.files[0]);
+}
+
+function drawLineFromObj(obj){
+
+    // wrapper for parseInt that only takes one argument
+    var intParse = function(string){
+        return parseInt(string);
+    }
+    
+    // seems to be a bug that with fabric.Line that sometimes flips coordinates when given as strings
+    // investigate this bug further later
+    var lineCoords = [obj.Line_x1, obj.Line_y1, obj.Line_x2, obj.Line_y2].map(intParse);
+    var boundaryCoords = [obj.Boundary_x1, obj.Boundary_y1, obj.Boundary_x2, obj.Boundary_y2].map(intParse);
+
+    var line = new fabric.Line(lineCoords, {
+        stroke: line_colors[obj.LineType],
+        strokeWidth: LINE_WIDTH,
+        originX: 'center',
+        originY: 'center'
+    });
+
+    var boundary = new fabric.Line(boundaryCoords,{
+        stroke: line_colors[obj.LineType],
+        strokeWidth: LINE_WIDTH,
+        originX: 'center',
+        originY: 'center'
+    });
+
+    var group = new fabric.Group([line, boundary],{
+        left: Math.min(line.x1, line.x2, boundary.x2),
+        top: Math.min(line.y1, line.y2, boundary.y2)
+    });
+
+    group.line_type = obj.LineType;
+    canvas.add(group);
+}
+
+function testLine(){
+    var coords = [512.5,77,723.5,109];
+
+    var line = new fabric.Line(coords,{
+        stroke: line_colors['trac'],
+        strokeWidth: LINE_WIDTH,
+        originX: 'center',
+        originY: 'center'    
+    });
+    canvas.add(line);
+}
+
 
 function compute(){
     // ASK BEN HOW TO DO
