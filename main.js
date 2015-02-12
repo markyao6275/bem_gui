@@ -22,6 +22,7 @@ var ARROW_HEIGHT = 15;
 var ZOOM_SCALE = 1.2;
 var canvasScale = 1;
 var PAN_MODE = false;
+var SNAP_DISTANCE = 30;
 
 function init()
 {
@@ -113,15 +114,51 @@ function LineDrawer(line_type)
 LineDrawer.prototype.startLine = function(o) {
     canvas.off('mouse:down');
     this.lineStarted = true;
+
+    var startSet = false;
     var pointer = canvas.getPointer(o.e);
-    var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
+    var points = [];
+
+    canvas.forEachObject(function(obj){
+        if (obj.isType("group") && !startSet){
+            var line = obj.item(0);
+            var boundary = obj.item(1);
+            var distFromLineEnd1 = Math.abs(pointer.x - line.x1) + Math.abs(pointer.y - line.y1);
+            var distFromLineEnd2 = Math.abs(pointer.x - line.x2) + Math.abs(pointer.y - line.y2);
+            
+            var distFromBoundaryEnd1 = Math.abs(pointer.x - boundary.x1) + Math.abs(pointer.y - boundary.y1);
+            var distFromBoundaryEnd2 = Math.abs(pointer.x - boundary.x2) + Math.abs(pointer.y - boundary.y2);
+            
+
+            if (distFromLineEnd1 < SNAP_DISTANCE){
+                points = [ line.x1, line.y1, line.x1, line.y1 ];
+                startSet = true;
+            }
+            else if (distFromLineEnd2 < SNAP_DISTANCE) {
+                points = [ line.x2, line.y2, line.x2, line.y2 ];
+                startSet = true;
+            }
+            else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
+                points = [ boundary.x1, boundary.y1, boundary.x1, boundary.y1 ];
+                startSet = true;
+            }
+            else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
+                points = [ boundary.x2, boundary.y2, boundary.x2, boundary.y2 ];
+                startSet = true;
+            }
+        }
+    });
+    
+    if (!startSet){
+        var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
+    }
     
     this.line = new fabric.Line(points, {
         stroke: line_colors[this.line_type],
         strokeWidth: LINE_WIDTH,
         originX: 'center',
         originY: 'center',
-        centeredScaling: true
+        centeredScaling: true,
     });
 
     canvas.add(this.line);
@@ -138,13 +175,86 @@ LineDrawer.prototype.updateLine = function(o){
     }
     var pointer = canvas.getPointer(o.e);
 
-    if (this.drawingBoundary)
-    {
+    if (this.drawingBoundary) {  
+
         this.boundary.set({ x2: pointer.x, y2: pointer.y });
+        var EndSet = false;
+        var currBoundary = this.boundary;
+
+        canvas.forEachObject(function(obj){
+
+            if (obj.isType("group") && !EndSet){
+                var line = obj.item(0);
+                var boundary = obj.item(1);
+                var distFromLineEnd1 = Math.abs(pointer.x - line.x1) + Math.abs(pointer.y - line.y1);
+                var distFromLineEnd2 = Math.abs(pointer.x - line.x2) + Math.abs(pointer.y - line.y2);
+                
+                var distFromBoundaryEnd1 = Math.abs(pointer.x - boundary.x1) + Math.abs(pointer.y - boundary.y1);
+                var distFromBoundaryEnd2 = Math.abs(pointer.x - boundary.x2) + Math.abs(pointer.y - boundary.y2);
+                
+
+                if (distFromLineEnd1 < SNAP_DISTANCE){
+                    currBoundary.set({ x2: line.x1, y2: line.y1 });
+                    EndSet = true;
+                }
+                else if (distFromLineEnd2 < SNAP_DISTANCE) {
+                    currBoundary.set({ x2: line.x2, y2: line.y2 });
+                    EndSet = true;
+                }
+                else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
+                    currBoundary.set({ x2: boundary.x1, y2: boundary.y1 });
+                    EndSet = true;
+                }
+                else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
+                    currBoundary.set({ x2: boundary.x2, y2: boundary.y2 });
+                    EndSet = true;
+                }
+            }
+        });
+
+        if (!EndSet){
+            this.boundary.set({ x2: pointer.x, y2: pointer.y });
+        }
     }
-    else
-    {
+    else {
         this.line.set({ x2: pointer.x, y2: pointer.y });
+
+        var EndSet = false;
+        var currLine = this.line;
+
+        canvas.forEachObject(function(obj){
+            if (obj.isType("group") && !EndSet){
+                var line = obj.item(0);
+                var boundary = obj.item(1);
+                var distFromLineEnd1 = Math.abs(pointer.x - line.x1) + Math.abs(pointer.y - line.y1);
+                var distFromLineEnd2 = Math.abs(pointer.x - line.x2) + Math.abs(pointer.y - line.y2);
+                
+                var distFromBoundaryEnd1 = Math.abs(pointer.x - boundary.x1) + Math.abs(pointer.y - boundary.y1);
+                var distFromBoundaryEnd2 = Math.abs(pointer.x - boundary.x2) + Math.abs(pointer.y - boundary.y2);
+                
+
+                if (distFromLineEnd1 < SNAP_DISTANCE){
+                    currLine.set({ x2: line.x1, y2: line.y1 });
+                    EndSet = true;
+                }
+                else if (distFromLineEnd2 < SNAP_DISTANCE) {
+                    currLine.set({ x2: line.x2, y2: line.y2 });
+                    EndSet = true;
+                }
+                else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
+                    currLine.set({ x2: boundary.x1, y2: boundary.y1 });
+                    EndSet = true;
+                }
+                else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
+                    currLine.set({ x2: boundary.x2, y2: boundary.y2 });
+                    EndSet = true;
+                }
+            }
+        });
+
+        if (!EndSet){
+            this.line.set({ x2: pointer.x, y2: pointer.y });
+        }
     }
     canvas.renderAll();
 }
@@ -162,7 +272,8 @@ LineDrawer.prototype.finishLine = function(o) {
             strokeWidth: LINE_WIDTH,
             originX: 'center',
             originY: 'center',
-            centeredScaling: true
+            centeredScaling: true,
+            opacity: 0.9
         });
         canvas.add(this.boundary);
         me = this;
