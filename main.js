@@ -20,9 +20,11 @@ var NORM_VEC_MAGNITUDE = 50;
 var ARROW_WIDTH = 15;
 var ARROW_HEIGHT = 15;
 var ZOOM_SCALE = 1.2;
+var CURR_ZOOM = 1;
 var canvasScale = 1;
 var PAN_MODE = false;
 var SNAP_DISTANCE = 30;
+var ANGLE_SNAP_DISTANCE = 15;
 
 function init()
 {
@@ -41,6 +43,7 @@ function init()
     $('#ct_btn').click(function() {initDraw("ct")});
     $('#cd_btn').click(function() {initDraw("cd")});
     $('#comp_btn').click(function() {compute()});
+    $('#edit_gp_btn').click(function() {editCurrGroup()});
     $('#img_btn').click(function() {showBackgroundUploader()});
     $('#zoomIn_btn').click(function() {zoom(ZOOM_SCALE)});
     $('#zoomOut_btn').click(function() {zoom(1/ZOOM_SCALE)});
@@ -123,34 +126,39 @@ LineDrawer.prototype.startLine = function(o) {
         if (obj.isType("group") && !startSet){
             var line = obj.item(0);
             var boundary = obj.item(1);
-            var distFromLineEnd1 = Math.abs(pointer.x - line.x1) + Math.abs(pointer.y - line.y1);
-            var distFromLineEnd2 = Math.abs(pointer.x - line.x2) + Math.abs(pointer.y - line.y2);
-            
-            var distFromBoundaryEnd1 = Math.abs(pointer.x - boundary.x1) + Math.abs(pointer.y - boundary.y1);
-            var distFromBoundaryEnd2 = Math.abs(pointer.x - boundary.x2) + Math.abs(pointer.y - boundary.y2);
-            
 
+            var groupCenter = obj.getCenterPoint();
+
+            var adjLine = dispCoords(obj, line);
+            var adjBoundary = dispCoords(obj,boundary);
+
+            var distFromLineEnd1 = Math.abs(pointer.x - adjLine.x1) + Math.abs(pointer.y - adjLine.y1);
+            var distFromLineEnd2 = Math.abs(pointer.x - adjLine.x2) + Math.abs(pointer.y - adjLine.y2);
+            
+            var distFromBoundaryEnd1 = Math.abs(pointer.x - adjBoundary.x1) + Math.abs(pointer.y - adjBoundary.y1);
+            var distFromBoundaryEnd2 = Math.abs(pointer.x - adjBoundary.x2) + Math.abs(pointer.y - adjBoundary.y2);
+            
             if (distFromLineEnd1 < SNAP_DISTANCE){
-                points = [ line.x1, line.y1, line.x1, line.y1 ];
+                points = [ adjLine.x1, adjLine.y1, adjLine.x1, adjLine.y1 ];
                 startSet = true;
             }
             else if (distFromLineEnd2 < SNAP_DISTANCE) {
-                points = [ line.x2, line.y2, line.x2, line.y2 ];
+                points = [ adjLine.x2, adjLine.y2, adjLine.x2, adjLine.y2 ];
                 startSet = true;
             }
             else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
-                points = [ boundary.x1, boundary.y1, boundary.x1, boundary.y1 ];
+                points = [ adjBoundary.x1, adjBoundary.y1, adjBoundary.x1, adjBoundary.y1 ];
                 startSet = true;
             }
             else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
-                points = [ boundary.x2, boundary.y2, boundary.x2, boundary.y2 ];
+                points = [ adjBoundary.x2, adjBoundary.y2, adjBoundary.x2, adjBoundary.y2 ];
                 startSet = true;
             }
         }
     });
     
     if (!startSet){
-        var points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
+        points = [ pointer.x, pointer.y, pointer.x, pointer.y ];
     }
     
     this.line = new fabric.Line(points, {
@@ -176,83 +184,81 @@ LineDrawer.prototype.updateLine = function(o){
     var pointer = canvas.getPointer(o.e);
 
     if (this.drawingBoundary) {  
-
         this.boundary.set({ x2: pointer.x, y2: pointer.y });
-        var EndSet = false;
-        var currBoundary = this.boundary;
 
-        canvas.forEachObject(function(obj){
+        if (this.line_type == "ct" || this.line_type == "cd"){
+            var lineHeight = this.line.y2 - this.line.y1;
+            var lineWidth = this.line.x2 - this.line.x1;
+            var boundaryHeight = this.boundary.y2 - this.boundary.y1;
+            var boundaryWidth = this.boundary.x2 - this.boundary.x1;
+            
+            var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
+            var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth)* (180/Math.PI);
 
-            if (obj.isType("group") && !EndSet){
-                var line = obj.item(0);
-                var boundary = obj.item(1);
-                var distFromLineEnd1 = Math.abs(pointer.x - line.x1) + Math.abs(pointer.y - line.y1);
-                var distFromLineEnd2 = Math.abs(pointer.x - line.x2) + Math.abs(pointer.y - line.y2);
-                
-                var distFromBoundaryEnd1 = Math.abs(pointer.x - boundary.x1) + Math.abs(pointer.y - boundary.y1);
-                var distFromBoundaryEnd2 = Math.abs(pointer.x - boundary.x2) + Math.abs(pointer.y - boundary.y2);
-                
+            var halfLineLength = Math.pow(Math.pow(lineWidth/2, 2) + Math.pow(lineHeight/2, 2), 0.5);
+            var boundaryLength = Math.pow(Math.pow(boundaryWidth, 2) + Math.pow(boundaryHeight, 2), 0.5);
+            var boundaryProjLength = boundaryLength * Math.abs(Math.cos(boundaryAngle - lineAngle));
 
-                if (distFromLineEnd1 < SNAP_DISTANCE){
-                    currBoundary.set({ x2: line.x1, y2: line.y1 });
-                    EndSet = true;
-                }
-                else if (distFromLineEnd2 < SNAP_DISTANCE) {
-                    currBoundary.set({ x2: line.x2, y2: line.y2 });
-                    EndSet = true;
-                }
-                else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
-                    currBoundary.set({ x2: boundary.x1, y2: boundary.y1 });
-                    EndSet = true;
-                }
-                else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
-                    currBoundary.set({ x2: boundary.x2, y2: boundary.y2 });
-                    EndSet = true;
-                }
+
+            if (Math.abs(boundaryAngle - lineAngle) < ANGLE_SNAP_DISTANCE){
+                this.boundary.set({
+                    x2: boundaryProjLength/halfLineLength * (this.line.x2 - this.boundary.x1) + this.boundary.x1,
+                    y2: boundaryProjLength/halfLineLength * (this.line.y2 - this.boundary.y1) + this.boundary.y1,
+                })
+
             }
-        });
+            else if (Math.abs(boundaryAngle - (180 + lineAngle)) < ANGLE_SNAP_DISTANCE){
+                this.boundary.set({
+                    x2: boundaryProjLength/halfLineLength * (this.line.x1 - this.boundary.x1) + this.boundary.x1,
+                    y2: boundaryProjLength/halfLineLength * (this.line.y1 - this.boundary.y1) + this.boundary.y1,
+                })
 
-        if (!EndSet){
-            this.boundary.set({ x2: pointer.x, y2: pointer.y });
+            }
         }
     }
     else {
         this.line.set({ x2: pointer.x, y2: pointer.y });
 
-        var EndSet = false;
+        var endSet = false;
         var currLine = this.line;
 
         canvas.forEachObject(function(obj){
-            if (obj.isType("group") && !EndSet){
+            if (obj.isType("group") && !endSet){
                 var line = obj.item(0);
                 var boundary = obj.item(1);
-                var distFromLineEnd1 = Math.abs(pointer.x - line.x1) + Math.abs(pointer.y - line.y1);
-                var distFromLineEnd2 = Math.abs(pointer.x - line.x2) + Math.abs(pointer.y - line.y2);
+
+                var groupCenter = obj.getCenterPoint();
+
+                var adjLine = dispCoords(obj, line);
+                var adjBoundary = dispCoords(obj,boundary);
+
+                var distFromLineEnd1 = Math.abs(pointer.x - adjLine.x1) + Math.abs(pointer.y - adjLine.y1);
+                var distFromLineEnd2 = Math.abs(pointer.x - adjLine.x2) + Math.abs(pointer.y - adjLine.y2);
                 
-                var distFromBoundaryEnd1 = Math.abs(pointer.x - boundary.x1) + Math.abs(pointer.y - boundary.y1);
-                var distFromBoundaryEnd2 = Math.abs(pointer.x - boundary.x2) + Math.abs(pointer.y - boundary.y2);
+                var distFromBoundaryEnd1 = Math.abs(pointer.x - adjBoundary.x1) + Math.abs(pointer.y - adjBoundary.y1);
+                var distFromBoundaryEnd2 = Math.abs(pointer.x - adjBoundary.x2) + Math.abs(pointer.y - adjBoundary.y2);
                 
 
                 if (distFromLineEnd1 < SNAP_DISTANCE){
-                    currLine.set({ x2: line.x1, y2: line.y1 });
-                    EndSet = true;
+                    currLine.set({ x2: adjLine.x1, y2: adjLine.y1 });
+                    endSet = true;
                 }
                 else if (distFromLineEnd2 < SNAP_DISTANCE) {
-                    currLine.set({ x2: line.x2, y2: line.y2 });
-                    EndSet = true;
+                    currLine.set({ x2: adjLine.x2, y2: adjLine.y2 });
+                    endSet = true;
                 }
                 else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
-                    currLine.set({ x2: boundary.x1, y2: boundary.y1 });
-                    EndSet = true;
+                    currLine.set({ x2: adjBoundary.x1, y2: adjBoundary.y1 });
+                    endSet = true;
                 }
                 else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
-                    currLine.set({ x2: boundary.x2, y2: boundary.y2 });
-                    EndSet = true;
+                    currLine.set({ x2: adjBoundary.x2, y2: adjBoundary.y2 });
+                    endSet = true;
                 }
             }
         });
 
-        if (!EndSet){
+        if (!endSet){
             this.line.set({ x2: pointer.x, y2: pointer.y });
         }
     }
@@ -290,17 +296,6 @@ LineDrawer.prototype.finishLine = function(o) {
         var lineWidth = this.line.x2 - this.line.x1;
         var boundaryHeight = this.boundary.y2 - this.boundary.y1;
         var boundaryWidth = this.boundary.x2 - this.boundary.x1;
-
-        // calculate the scaling constant to normalize the boundary condition
-        // var scalingConstant = NORM_VEC_MAGNITUDE/Math.sqrt((Math.pow(boundaryWidth, 2) + Math.pow(boundaryHeight, 2)));
-
-        // // normalize the boundary vector
-        // this.boundary.set({
-        //     x2: this.boundary.x1 + scalingConstant*boundaryWidth,
-        //     y2: this.boundary.y1 + scalingConstant*boundaryHeight
-        // });
-
-        // draw arrowheads
         
         var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
         var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth)* (180/Math.PI);
@@ -353,6 +348,24 @@ LineDrawer.prototype.finishLine = function(o) {
                         this.normalVector.getBoundingRect().top),
         });
         group.line_type = this.line_type;
+
+        groupCenter = group.getCenterPoint();
+
+        this.line.set({
+            x1: this.line.x1 - groupCenter.x,
+            y1: this.line.y1 - groupCenter.y,
+            x2: this.line.x2 - groupCenter.x,
+            y2: this.line.y2 - groupCenter.y,
+        });
+
+        this.boundary.set({
+            x1: this.boundary.x1 - groupCenter.x,
+            y1: this.boundary.y1 - groupCenter.y,
+            x2: this.boundary.x2 - groupCenter.x,
+            y2: this.boundary.y2 - groupCenter.y,
+        });
+
+        group.setCoords();
         canvas.add(group);
 
         // set the correct modes
@@ -411,6 +424,8 @@ function zoom(scale){
     
     canvasScale = canvasScale * scale;
     
+    CURR_ZOOM = CURR_ZOOM * scale;
+
     var objects = canvas.getObjects();
     
     for (i = 0; i < objects.length; i++) {
@@ -466,7 +481,7 @@ function updatePan(o, startPoint){
     for (i = 0; i < objects.length; i++) {
         objects[i].left = objects[i].left + panX;
         objects[i].top = objects[i].top + panY;
-        
+
         objects[i].setCoords();
     }
     canvas.renderAll();
@@ -482,6 +497,23 @@ function endPan(o){
     canvas.renderAll();
 }
 
+/*
+FOR EDITING ALREADY CREATED LINES
+*/
+
+
+function dispCoords(obj, points){
+    var objCenter = obj.getCenterPoint();
+
+    var adjustedPoints = {
+        x1: CURR_ZOOM * points.x1 + objCenter.x,
+        y1: CURR_ZOOM * points.y1 + objCenter.y,
+        x2: CURR_ZOOM * points.x2 + objCenter.x,
+        y2: CURR_ZOOM * points.y2 + objCenter.y,
+    };
+
+    return adjustedPoints;
+}
 
 
 /*
@@ -506,9 +538,18 @@ function saveToCSV() {
         // turn them into JSON for easy access
         info = obj.toJSON().objects;
 
+        var groupCenter = obj.getCenterPoint();
+
         // get line_data and boundary_data
-        line_data = [info[0].x1, info[0].y1, info[0].x2, info[0].y2];
-        boundary_data = [info[1].x1, info[1].y1, info[1].x2, info[1].y2];
+        line_data = [info[0].x1 + groupCenter.x,
+                    info[0].y1 + groupCenter.y,
+                    info[0].x2 + groupCenter.x,
+                    info[0].y2 + groupCenter.y];
+        boundary_data = [info[1].x1 + groupCenter.x,
+                    info[1].y1 + groupCenter.y,
+                    info[1].x2 + groupCenter.x,
+                    info[1].y2 + groupCenter.y];
+
 
         // concatenate line_data and boundary_data
         all_data = line_data.concat(boundary_data);
