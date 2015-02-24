@@ -25,6 +25,7 @@ var canvasScale = 1;
 var PAN_MODE = false;
 var SNAP_DISTANCE = 30;
 var ANGLE_SNAP_DISTANCE = 15;
+var DRAWING_MODE = false;
 
 function init()
 {
@@ -52,6 +53,8 @@ function init()
     $('#load_btn').click(function() {showCSVUploader()});
 
     // Set the key bindings
+    Mousetrap.bind('shift', function() {straightenLine(true)});
+    Mousetrap.bind('shift', function() {straightenLine(false)}, 'keyup');
     Mousetrap.bind('d', function() {initDraw("disp")});
     Mousetrap.bind('t', function() {initDraw("trac")});
     Mousetrap.bind('c', function() {initDraw("ct")});
@@ -80,6 +83,7 @@ function initDraw(line_type)
         obj.selectable = false;
     });
     curLineDrawer = new LineDrawer(line_type);
+    DRAWING_MODE = true;
     initLine()
 
     // currently not needed since we're not explicitly entering values
@@ -112,6 +116,7 @@ function LineDrawer(line_type)
     this.lineStarted = false;
     this.drawingBoundary = false;
     this.line_type = line_type;
+    this.straightenLine = false;
 }
 
 LineDrawer.prototype.startLine = function(o) {
@@ -186,33 +191,35 @@ LineDrawer.prototype.updateLine = function(o){
     if (this.drawingBoundary) {  
         this.boundary.set({ x2: pointer.x, y2: pointer.y });
 
-        if (this.line_type == "ct" || this.line_type == "cd"){
+        if (this.straightenLine){
             var lineHeight = this.line.y2 - this.line.y1;
             var lineWidth = this.line.x2 - this.line.x1;
             var boundaryHeight = this.boundary.y2 - this.boundary.y1;
             var boundaryWidth = this.boundary.x2 - this.boundary.x1;
             
-            var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
-            var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth)* (180/Math.PI);
+            // given in radians
+            var lineAngle = Math.atan2(lineHeight, lineWidth);
+            var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth);
 
-            var halfLineLength = Math.pow(Math.pow(lineWidth/2, 2) + Math.pow(lineHeight/2, 2), 0.5);
+            var lineLength = Math.pow(Math.pow(lineWidth, 2) + Math.pow(lineHeight, 2), 0.5);
             var boundaryLength = Math.pow(Math.pow(boundaryWidth, 2) + Math.pow(boundaryHeight, 2), 0.5);
-            var boundaryProjLength = boundaryLength * Math.abs(Math.cos(boundaryAngle - lineAngle));
+            var boundaryProjLength = boundaryLength * Math.cos(boundaryAngle - lineAngle);
+            var boundaryPerpProjLength = boundaryLength * Math.sin(boundaryAngle - lineAngle);  
 
+            var xSide = Math.cos(boundaryAngle - lineAngle - 45) > 0 ? 1 : -1;
+            var ySide = Math.sin(boundaryAngle - lineAngle - 45) > 0 ? 1 : -1;
 
-            if (Math.abs(boundaryAngle - lineAngle) < ANGLE_SNAP_DISTANCE){
+            if (xSide * ySide > 0) {
                 this.boundary.set({
-                    x2: boundaryProjLength/halfLineLength * (this.line.x2 - this.boundary.x1) + this.boundary.x1,
-                    y2: boundaryProjLength/halfLineLength * (this.line.y2 - this.boundary.y1) + this.boundary.y1,
-                })
-
+                    x2: this.boundary.x1 + boundaryPerpProjLength/lineLength * lineHeight * (-1),
+                    y2: this.boundary.y1 + boundaryPerpProjLength/lineLength * lineWidth
+                });
             }
-            else if (Math.abs(boundaryAngle - (180 + lineAngle)) < ANGLE_SNAP_DISTANCE){
+            else {
                 this.boundary.set({
-                    x2: boundaryProjLength/halfLineLength * (this.line.x1 - this.boundary.x1) + this.boundary.x1,
-                    y2: boundaryProjLength/halfLineLength * (this.line.y1 - this.boundary.y1) + this.boundary.y1,
-                })
-
+                    x2: this.boundary.x1 + boundaryProjLength/lineLength * lineWidth,
+                    y2: this.boundary.y1 + boundaryProjLength/lineLength * lineHeight
+                });
             }
         }
     }
@@ -221,6 +228,35 @@ LineDrawer.prototype.updateLine = function(o){
 
         var endSet = false;
         var currLine = this.line;
+
+        if (this.straightenLine){
+            var lineHeight = currLine.y2 - currLine.y1;
+            var lineWidth = currLine.x2 - currLine.x1;
+            var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
+        
+            var lineLength = Math.pow(Math.pow(lineWidth, 2) + Math.pow(lineHeight, 2), 0.5);
+            var lineProjXLength = lineLength * Math.cos(Math.PI/180 * lineAngle);
+            var lineProjYLength = lineLength * Math.sin(Math.PI/180 * lineAngle);       
+
+            var xSide = Math.cos(Math.PI/180 * lineAngle - 45) > 0 ? 1 : -1;
+            var ySide = Math.sin(Math.PI/180 * lineAngle - 45) > 0 ? 1 : -1;
+ 
+            if (xSide * ySide > 0) {
+                currLine.set({
+                    x2: currLine.x1,
+                    y2: currLine.y1 + lineProjYLength,
+                });
+            }
+            else {
+                currLine.set({
+                    x2: currLine.x1 + lineProjXLength,
+                    y2: currLine.y1,
+                });
+            }
+
+
+            endSet = true;
+        }
 
         canvas.forEachObject(function(obj){
             if (obj.isType("group") && !endSet){
@@ -236,9 +272,9 @@ LineDrawer.prototype.updateLine = function(o){
                 var distFromLineEnd2 = Math.abs(pointer.x - adjLine.x2) + Math.abs(pointer.y - adjLine.y2);
                 
                 var distFromBoundaryEnd1 = Math.abs(pointer.x - adjBoundary.x1) + Math.abs(pointer.y - adjBoundary.y1);
-                var distFromBoundaryEnd2 = Math.abs(pointer.x - adjBoundary.x2) + Math.abs(pointer.y - adjBoundary.y2);
-                
+                var distFromBoundaryEnd2 = Math.abs(pointer.x - adjBoundary.x2) + Math.abs(pointer.y - adjBoundary.y2);      
 
+                // for point snapping
                 if (distFromLineEnd1 < SNAP_DISTANCE){
                     currLine.set({ x2: adjLine.x1, y2: adjLine.y1 });
                     endSet = true;
@@ -289,6 +325,11 @@ LineDrawer.prototype.finishLine = function(o) {
     else
     // the below method of handling line drawing can probably still be improved
     {
+        // set the correct modes
+        this.lineStarted = false;
+        this.drawingBoundary = false;
+        DRAWING_MODE = false;
+
         canvas.remove(this.line)
         canvas.remove(this.boundary);
         
@@ -368,10 +409,6 @@ LineDrawer.prototype.finishLine = function(o) {
         group.setCoords();
         canvas.add(group);
 
-        // set the correct modes
-        this.lineStarted = false;
-        this.drawingBoundary = false;
-
         canvas.forEachObject(function(obj){
             obj.selectable = true;
         });
@@ -382,6 +419,12 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:down');    
     canvas.off('mouse:move');
     canvas.off('mouse:up');
+}
+
+
+function straightenLine(bool){
+    if (DRAWING_MODE)
+        curLineDrawer.straightenLine = bool;
 }
 
 /*
@@ -422,44 +465,49 @@ function loadBackground(event) {
 
 function zoom(scale){
     
-    canvasScale = canvasScale * scale;
-    
-    CURR_ZOOM = CURR_ZOOM * scale;
+    if (!DRAWING_MODE){
+        canvasScale = canvasScale * scale;
+        
+        CURR_ZOOM = CURR_ZOOM * scale;
 
-    var objects = canvas.getObjects();
-    
-    for (i = 0; i < objects.length; i++) {
-        objects[i].scaleX = objects[i].scaleX * scale;
-        objects[i].scaleY = objects[i].scaleY * scale;
-        objects[i].left = objects[i].left * scale;
-        objects[i].top = objects[i].top * scale;
+        var objects = canvas.getObjects();
         
-        objects[i].setCoords();
+        for (i = 0; i < objects.length; i++) {
+            objects[i].scaleX = objects[i].scaleX * scale;
+            objects[i].scaleY = objects[i].scaleY * scale;
+            objects[i].left = objects[i].left * scale;
+            objects[i].top = objects[i].top * scale;
+            
+            objects[i].setCoords();
+        }
+            
+        canvas.renderAll();
     }
-        
-    canvas.renderAll();
 }
 
 function initPan(){
-    
-    if (PAN_MODE){
-        canvas.off('mouse:down');
-        canvas.off('mouse:move');
-        canvas.off('mouse:up');
-        canvas.selection = true;
-        canvas.forEachObject(function(o) {
-          o.selectable = true;
-        });
-        PAN_MODE = false;
-    }
-    else {
-        PAN_MODE = true;
-        canvas.selection = false;
-        canvas.forEachObject(function(o) {
-            o.selectable = false;
-        });
-        canvas.off('mouse:down');
-        canvas.on('mouse:down', function(o) {startPan(o)});
+
+    if (!DRAWING_MODE){
+        
+        if (PAN_MODE){
+            canvas.off('mouse:down');
+            canvas.off('mouse:move');
+            canvas.off('mouse:up');
+            canvas.selection = true;
+            canvas.forEachObject(function(o) {
+              o.selectable = true;
+            });
+            PAN_MODE = false;
+        }
+        else {
+            PAN_MODE = true;
+            canvas.selection = false;
+            canvas.forEachObject(function(o) {
+                o.selectable = false;
+            });
+            canvas.off('mouse:down');
+            canvas.on('mouse:down', function(o) {startPan(o)});
+        }
     }
 }
 
