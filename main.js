@@ -27,8 +27,7 @@ var SNAP_DISTANCE = 30;
 var ANGLE_SNAP_DISTANCE = 15;
 var DRAWING_MODE = false;
 
-function init()
-{
+function init(){
     // Setup the fabric.js canvas
     canvas = new fabric.Canvas('c', {
         backgroundColor : "#DCDCDC",
@@ -45,6 +44,7 @@ function init()
     $('#cd_btn').click(function() {initDraw("cd")});
     $('#comp_btn').click(function() {compute()});
     $('#edit_gp_btn').click(function() {editCurrGroup()});
+    $('#regp_btn').click(function() {restoreGroup()});
     $('#img_btn').click(function() {showBackgroundUploader()});
     $('#zoomIn_btn').click(function() {zoom(ZOOM_SCALE)});
     $('#zoomOut_btn').click(function() {zoom(1/ZOOM_SCALE)});
@@ -59,11 +59,15 @@ function init()
     Mousetrap.bind('t', function() {initDraw("trac")});
     Mousetrap.bind('c', function() {initDraw("ct")});
     Mousetrap.bind('f', function() {initDraw("cd")});
+    Mousetrap.bind('e', function() {editCurrGroup()});
+    Mousetrap.bind('g', function() {restoreGroup()});
     Mousetrap.bind('p', function() {initPan()});
     Mousetrap.bind('s', function() {saveToCSV()});
     Mousetrap.bind('l', function() {loadCSV()});
     Mousetrap.bind('backspace', function() {deleteSelection()});
     
+    Mousetrap.bind('shift+t', function() {test()});
+
     // currently not needed since we're not explicitly entering values
     // Mousetrap.bind('enter', function() {initLine();});
 
@@ -72,8 +76,7 @@ function init()
 function initDraw(line_type)
 {
     // kill any existing LineDrawer
-    if (undefined != curLineDrawer)
-    {
+    if (undefined != curLineDrawer){
         curLineDrawer.kill();
     }
 
@@ -96,11 +99,9 @@ function initDraw(line_type)
 FOR DRAWING LINES
  */
 
-
 function initLine()
 {
     // currently not needed since we're not explicitly entering values
-    
     // if (!$('#value_input_wrapper').is(":visible"))
     // {
     //     return;
@@ -171,7 +172,6 @@ LineDrawer.prototype.startLine = function(o) {
         strokeWidth: LINE_WIDTH,
         originX: 'center',
         originY: 'center',
-        centeredScaling: true,
     });
 
     canvas.add(this.line);
@@ -258,41 +258,43 @@ LineDrawer.prototype.updateLine = function(o){
             endSet = true;
         }
 
-        canvas.forEachObject(function(obj){
-            if (obj.isType("group") && !endSet){
-                var line = obj.item(0);
-                var boundary = obj.item(1);
+        else {
+            canvas.forEachObject(function(obj){
+                if (obj.isType("group") && !endSet){
+                    var line = obj.item(0);
+                    var boundary = obj.item(1);
 
-                var groupCenter = obj.getCenterPoint();
+                    var groupCenter = obj.getCenterPoint();
 
-                var adjLine = dispCoords(obj, line);
-                var adjBoundary = dispCoords(obj,boundary);
+                    var adjLine = dispCoords(obj, line);
+                    var adjBoundary = dispCoords(obj, boundary);
 
-                var distFromLineEnd1 = Math.abs(pointer.x - adjLine.x1) + Math.abs(pointer.y - adjLine.y1);
-                var distFromLineEnd2 = Math.abs(pointer.x - adjLine.x2) + Math.abs(pointer.y - adjLine.y2);
-                
-                var distFromBoundaryEnd1 = Math.abs(pointer.x - adjBoundary.x1) + Math.abs(pointer.y - adjBoundary.y1);
-                var distFromBoundaryEnd2 = Math.abs(pointer.x - adjBoundary.x2) + Math.abs(pointer.y - adjBoundary.y2);      
+                    var distFromLineEnd1 = Math.abs(pointer.x - adjLine.x1) + Math.abs(pointer.y - adjLine.y1);
+                    var distFromLineEnd2 = Math.abs(pointer.x - adjLine.x2) + Math.abs(pointer.y - adjLine.y2);
+                    
+                    var distFromBoundaryEnd1 = Math.abs(pointer.x - adjBoundary.x1) + Math.abs(pointer.y - adjBoundary.y1);
+                    var distFromBoundaryEnd2 = Math.abs(pointer.x - adjBoundary.x2) + Math.abs(pointer.y - adjBoundary.y2);      
 
-                // for point snapping
-                if (distFromLineEnd1 < SNAP_DISTANCE){
-                    currLine.set({ x2: adjLine.x1, y2: adjLine.y1 });
-                    endSet = true;
+                    // for point snapping
+                    if (distFromLineEnd1 < SNAP_DISTANCE){
+                        currLine.set({ x2: adjLine.x1, y2: adjLine.y1 });
+                        endSet = true;
+                    }
+                    else if (distFromLineEnd2 < SNAP_DISTANCE) {
+                        currLine.set({ x2: adjLine.x2, y2: adjLine.y2 });
+                        endSet = true;
+                    }
+                    else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
+                        currLine.set({ x2: adjBoundary.x1, y2: adjBoundary.y1 });
+                        endSet = true;
+                    }
+                    else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
+                        currLine.set({ x2: adjBoundary.x2, y2: adjBoundary.y2 });
+                        endSet = true;
+                    }
                 }
-                else if (distFromLineEnd2 < SNAP_DISTANCE) {
-                    currLine.set({ x2: adjLine.x2, y2: adjLine.y2 });
-                    endSet = true;
-                }
-                else if (distFromBoundaryEnd1 < SNAP_DISTANCE) {
-                    currLine.set({ x2: adjBoundary.x1, y2: adjBoundary.y1 });
-                    endSet = true;
-                }
-                else if (distFromBoundaryEnd2 < SNAP_DISTANCE) {
-                    currLine.set({ x2: adjBoundary.x2, y2: adjBoundary.y2 });
-                    endSet = true;
-                }
-            }
-        });
+            });
+        }
 
         if (!endSet){
             this.line.set({ x2: pointer.x, y2: pointer.y });
@@ -314,7 +316,6 @@ LineDrawer.prototype.finishLine = function(o) {
             strokeWidth: LINE_WIDTH,
             originX: 'center',
             originY: 'center',
-            centeredScaling: true,
             opacity: 0.9
         });
         canvas.add(this.boundary);
@@ -350,7 +351,6 @@ LineDrawer.prototype.finishLine = function(o) {
             top: this.line.y2,
             originX: 'center',
             originY: 'center',
-            centeredScaling: true
         });
 
         this.normalVector = new fabric.Triangle({
@@ -362,7 +362,6 @@ LineDrawer.prototype.finishLine = function(o) {
             top: this.boundary.y1,
             originX: 'center',
             originY: 'bottom',
-            centeredScaling: true
         });
 
         this.boundaryArrow = new fabric.Triangle({
@@ -374,10 +373,9 @@ LineDrawer.prototype.finishLine = function(o) {
             top: this.boundary.y2,
             originX: 'center',
             originY: 'center',
-            centeredScaling: true
         });
 
-        // create a group with the line and the boundary and draw i
+        // create a group with the line and the boundary and draw it
         var group = new fabric.Group([this.line, this.boundary, this.lineArrow, this.boundaryArrow, this.normalVector],{
             left: Math.min(this.line.x1,
                         this.lineArrow.getBoundingRect().left,
@@ -421,301 +419,113 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:up');
 }
 
-
 function straightenLine(bool){
     if (DRAWING_MODE)
         curLineDrawer.straightenLine = bool;
 }
 
 /*
-FOR LOADING BACKGROUND IMAGES
-*/
-
-function showBackgroundUploader(){
-    // show dialog box that asks for an image upload
-    $('#image_uploader_wrapper').show();
-}
-
-function loadBackground(event) {
-    // hide image upload dialog box
-    $('#image_uploader_wrapper').hide();
-
-    var input = event.target;
-    var imgReader = new FileReader();
-
-    // run the function when an image is uploaded
-    imgReader.onload = function(){
-        var uploadedImg = new Image();
-
-        // set this to the uploaded image
-        uploadedImg.src = imgReader.result;
-
-        // created new fabric.Image object that is scaled to the canvas properly
-        var fabricImg = new fabric.Image(uploadedImg, {
-            scaleX: canvas.width/uploadedImg.width,
-            scaleY: canvas.height/uploadedImg.height
-        });
-
-        // set the canvas's background image
-        canvas.setBackgroundImage(fabricImg, canvas.renderAll.bind(canvas));
-    };
-
-    imgReader.readAsDataURL(input.files[0]);
-}
-
-function zoom(scale){
-    
-    if (!DRAWING_MODE){
-        canvasScale = canvasScale * scale;
-        
-        CURR_ZOOM = CURR_ZOOM * scale;
-
-        var objects = canvas.getObjects();
-        
-        for (i = 0; i < objects.length; i++) {
-            objects[i].scaleX = objects[i].scaleX * scale;
-            objects[i].scaleY = objects[i].scaleY * scale;
-            objects[i].left = objects[i].left * scale;
-            objects[i].top = objects[i].top * scale;
-            
-            objects[i].setCoords();
-        }
-            
-        canvas.renderAll();
-    }
-}
-
-function initPan(){
-
-    if (!DRAWING_MODE){
-        
-        if (PAN_MODE){
-            canvas.off('mouse:down');
-            canvas.off('mouse:move');
-            canvas.off('mouse:up');
-            canvas.selection = true;
-            canvas.forEachObject(function(o) {
-              o.selectable = true;
-            });
-            PAN_MODE = false;
-        }
-        else {
-            PAN_MODE = true;
-            canvas.selection = false;
-            canvas.forEachObject(function(o) {
-                o.selectable = false;
-            });
-            canvas.off('mouse:down');
-            canvas.on('mouse:down', function(o) {startPan(o)});
-        }
-    }
-}
-
-function startPan(o){
-    canvas.off('mouse:down');
-    var startPoint = canvas.getPointer(o.e);
-    canvas.on('mouse:move', function(o) {updatePan(o, startPoint)});
-    canvas.on('mouse:up', function(o) {endPan(o)});
-}
-
-function updatePan(o, startPoint){
-    canvas.off('mouse:move');
-    var currPoint = canvas.getPointer(o.e);
-    var panX = currPoint.x - startPoint.x;
-    var panY = currPoint.y - startPoint.y; 
-
-    var objects = canvas.getObjects();
-   
-    for (i = 0; i < objects.length; i++) {
-        objects[i].left = objects[i].left + panX;
-        objects[i].top = objects[i].top + panY;
-
-        objects[i].setCoords();
-    }
-    canvas.renderAll();
-
-    canvas.on('mouse:move', function(o) {updatePan(o, currPoint)});
-}
-
-function endPan(o){
-    canvas.off('mouse:move');
-    canvas.off('mouse:up');
-    
-    canvas.on('mouse:down', function(o) {startPan(o)});
-    canvas.renderAll();
-}
-
-/*
 FOR EDITING ALREADY CREATED LINES
 */
+
+function editCurrGroup(){
+    var currGroup = canvas.getActiveObject();
+    var items = currGroup._objects;
+    currGroup._restoreObjectsState();
+    canvas.remove(currGroup);
+    var groupCenter = currGroup.getCenterPoint();
+    
+    for(var i = 0; i < 2; i++) {
+        items[i].left += groupCenter.x - currGroup.left;
+        items[i].top += groupCenter.y - currGroup.top;
+        canvas.add(items[i]);
+    }
+    canvas.renderAll();
+}
+
+function restoreGroup(){
+    var objects = canvas.getActiveGroup();
+
+    var line;
+    var boundary;
+
+    objects.forEachObject(function(obj){
+        canvas.remove(obj);       
+    });
+
+    var group = new fabric.Group(objects._objects, {
+        left: objects.getBoundingRect().left,
+        top: objects.getBoundingRect().top,
+    });
+
+    canvas.add(group);
+    
+    group.forEachObject(function(obj){
+        if (obj.opacity == 0.9){
+            boundary = obj;
+        }
+        else if (obj.opacity == 1){
+            line = obj;
+        }
+
+        obj.set({
+            left: obj.left - objects.left,
+            top: obj.top - objects.top,
+        });     
+    })   
+
+    if (boundary.x1 != (line.x1 + line.x2)/2 || boundary.y1 != (line.y1 + line.y2)/2){
+        boundary.set({
+            x1: (line.x1 + line.x2)/2,
+            y1: (line.y1 + line.y2)/2
+        })
+    }
+
+
+
+    group.setCoords();
+    canvas.renderAll();
+}
 
 
 function dispCoords(obj, points){
     var objCenter = obj.getCenterPoint();
+    var objAngle = obj.getAngle() * Math.PI/180;
+    var itemAngle1 = Math.atan2(points.y1, points.x1);
+    var itemDist1 = Math.pow(Math.pow(points.x1, 2) + Math.pow(points.y1, 2), 0.5);
+    var itemAngle2 = Math.atan2(points.y2, points.x2);
+    var itemDist2 = Math.pow(Math.pow(points.x2, 2) + Math.pow(points.y2, 2), 0.5);
+
+    var rotatedx1 = itemDist1 * Math.cos(itemAngle1 + objAngle);
+    var rotatedy1 = itemDist1 * Math.sin(itemAngle1 + objAngle);
+    var rotatedx2 = itemDist2 * Math.cos(itemAngle2 + objAngle);
+    var rotatedy2 = itemDist2 * Math.sin(itemAngle2 + objAngle);
 
     var adjustedPoints = {
-        x1: CURR_ZOOM * points.x1 + objCenter.x,
-        y1: CURR_ZOOM * points.y1 + objCenter.y,
-        x2: CURR_ZOOM * points.x2 + objCenter.x,
-        y2: CURR_ZOOM * points.y2 + objCenter.y,
+        x1: CURR_ZOOM * rotatedx1 + objCenter.x,
+        y1: CURR_ZOOM * rotatedy1 + objCenter.y,
+        x2: CURR_ZOOM * rotatedx2 + objCenter.x,
+        y2: CURR_ZOOM * rotatedy2 + objCenter.y,
     };
 
     return adjustedPoints;
 }
 
-
-/*
-FOR SAVING THE LINES & OBJECTS
- */
-
-function saveToCSV() {
-    objects = canvas.getObjects();
-
-    // each element of csvContentArray is one line of the CSV
-    var csvContentArray = [];
-    
-    // enter the column headers
-    var csvHeaders = ['LineType', 'Line_x1', 'Line_y1', 'Line_x2', 'Line_y2',
-                    'Boundary_x1', 'Boundary_y1', 'Boundary_x2', 'Boundary_y2'];
-    csvContentArray.push(csvHeaders);
-
-    // for each objects
-    // this assumes the only objects on the canvas are lines
-    objects.forEach(function(obj){
-
-        // turn them into JSON for easy access
-        info = obj.toJSON().objects;
-
-        var groupCenter = obj.getCenterPoint();
-
-        // get line_data and boundary_data
-        line_data = [info[0].x1 + groupCenter.x,
-                    info[0].y1 + groupCenter.y,
-                    info[0].x2 + groupCenter.x,
-                    info[0].y2 + groupCenter.y];
-        boundary_data = [info[1].x1 + groupCenter.x,
-                    info[1].y1 + groupCenter.y,
-                    info[1].x2 + groupCenter.x,
-                    info[1].y2 + groupCenter.y];
-
-
-        // concatenate line_data and boundary_data
-        all_data = line_data.concat(boundary_data);
-
-        // add the type of line
-        data_with_label = [obj.line_type,].concat(all_data);
-
-        // turn this data into a CSV string
-        var dataString = data_with_label.join(',');
-
-        // add this to the content array
-        csvContentArray.push(dataString);
-    });
-
-    // add all the entries in csvContentArray, with newline characters
-    var csvContent = "data:text/csv;charset=utf-8," + csvContentArray.join("\n");
-
-    // download the CSV file
-    var encodedUri = encodeURI(csvContent);
-    window.open(encodedUri);
-}
-
-/*
-FOR DRAWING LINES FROM AN UPLOADED CSV
- */
-
-function showCSVUploader(){
-    $('#csv_uploader_wrapper').show();
-}
-
-function loadCSV(event){
-    $('#csv_uploader_wrapper').hide();
-
-    var input = event.target;
-    var csvReader = new FileReader();
-
-    // run the function when a CSV is uploaded
-    csvReader.onload = function(){
-        var uploadedCSV = csvReader.result;
-        
-        var lines = $.csv.toObjects(uploadedCSV);
-        
-        var numLines = lines.length;
-
-        for (i = 0; i < numLines; i++){
-            drawLineFromObj(lines[i]);
-        }
-    };
-
-    csvReader.readAsText(input.files[0]);
-}
-
-function drawLineFromObj(obj){
-
-    // wrapper for parseInt that only takes one argument
-    var intParse = function(string){
-        return parseInt(string);
-    }
-    
-    // seems to be a bug that with fabric.Line that sometimes flips coordinates when given as strings
-    // investigate this bug further later
-    var lineCoords = [obj.Line_x1, obj.Line_y1, obj.Line_x2, obj.Line_y2].map(intParse);
-    var boundaryCoords = [obj.Boundary_x1, obj.Boundary_y1, obj.Boundary_x2, obj.Boundary_y2].map(intParse);
-
-    var lineHeight = obj.Line_y2 - obj.Line_y1;
-    var lineWidth = obj.Line_x2 - obj.Line_x1;
-    var boundaryHeight = obj.Boundary_y2 - obj.Boundary_y1;
-    var boundaryWidth = obj.Boundary_x2 - obj.Boundary_x1;
-
-    var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
-    var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth)* (180/Math.PI);
-
-
-    var line = new fabric.Line(lineCoords, {
-        stroke: line_colors[obj.LineType],
+function test(){
+    var testline1 = new fabric.Line([50, 50, 100, 100], {
+        stroke: "#6600CC",
         strokeWidth: LINE_WIDTH,
-        originX: 'center',
-        originY: 'center'
     });
 
-    var boundary = new fabric.Line(boundaryCoords,{
-        stroke: line_colors[obj.LineType],
+    var testline2 = new fabric.Line([30, 70, 150, 200], {
+        stroke: "#96705C",
         strokeWidth: LINE_WIDTH,
-        originX: 'center',
-        originY: 'center'
     });
+    
+    var group = new fabric.Group([testline1, testline2]);
 
-    var lineArrow = new fabric.Triangle({
-            width: ARROW_WIDTH,
-            height: ARROW_HEIGHT,
-            fill: line.stroke,
-            angle: 90 + lineAngle,
-            left: line.x2,
-            top: line.y2,
-            originX: 'center',
-            originY: 'center',
-            centeredScaling: true
-        });
-
-    var boundaryArrow = new fabric.Triangle({
-            width: ARROW_WIDTH,
-            height: ARROW_HEIGHT,
-            fill: boundary.stroke,
-            angle: 90 + boundaryAngle,
-            left: boundary.x2,
-            top: boundary.y2,
-            originX: 'center',
-            originY: 'center',
-            centeredScaling: true
-        });
-
-    var group = new fabric.Group([line, boundary, lineArrow, boundaryArrow],{
-        left: Math.min(line.x1, lineArrow.getBoundingRect().left, boundaryArrow.getBoundingRect().left),
-        top: Math.min(line.y1, lineArrow.getBoundingRect().top, boundaryArrow.getBoundingRect().top)
-    });
-
-    group.line_type = obj.LineType;
     canvas.add(group);
+
 }
 
 /*
