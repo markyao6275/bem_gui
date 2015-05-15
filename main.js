@@ -27,6 +27,9 @@ var SNAP_DISTANCE = 30;
 var ANGLE_SNAP_DISTANCE = 15;
 var DRAWING_MODE = false;
 
+var canvasElts = []
+
+
 function init(){
     // Setup the fabric.js canvas
     canvas = new fabric.Canvas('c', {
@@ -49,8 +52,8 @@ function init(){
     $('#zoomIn_btn').click(function() {zoom(ZOOM_SCALE)});
     $('#zoomOut_btn').click(function() {zoom(1/ZOOM_SCALE)});
     $('#pan_btn').click(function(){initPan()})
-    $('#save_btn').click(function() {saveToCSV()});
-    $('#load_btn').click(function() {showCSVUploader()});
+
+
 
     // Set the key bindings
     Mousetrap.bind('shift', function() {straightenLine(true)});
@@ -62,8 +65,8 @@ function init(){
     Mousetrap.bind('e', function() {editCurrGroup()});
     Mousetrap.bind('g', function() {restoreGroup()});
     Mousetrap.bind('p', function() {initPan()});
-    Mousetrap.bind('s', function() {saveToCSV()});
-    Mousetrap.bind('l', function() {loadCSV()});
+    
+
     Mousetrap.bind('backspace', function() {deleteSelection()});
     
     Mousetrap.bind('shift+t', function() {test()});
@@ -72,6 +75,83 @@ function init(){
     // Mousetrap.bind('enter', function() {initLine();});
 
 }
+
+/*
+FOR TESTING
+*/
+
+// to test things
+function test(){
+    var testline1 = new fabric.Line([150, 150, 100, 100], {
+        stroke: "#6600CC",
+        strokeWidth: LINE_WIDTH,
+        originX: "right",
+        originY: "bottom",
+    });
+
+    var testline12 = new fabric.Line([150, 150, 100, 100], {
+        stroke: "#6600CC",
+        strokeWidth: LINE_WIDTH * 2,
+        originX: "center",
+        originY: "center",
+    });
+
+        var testline123 = new fabric.Line([150, 150, 100, 100], {
+        stroke: "#6600CC",
+        strokeWidth: LINE_WIDTH * 4,
+        originX: "left",
+        originY: "top",
+    });
+
+    var testline2 = new fabric.Line([30, 70, 150, 200], {
+        stroke: "#96705C",
+        strokeWidth: LINE_WIDTH,
+    });
+
+    canvas.add(testline1)
+    //canvas.add(testline12)
+    //canvas.add(testline123)
+
+    testline12.setPositionByOrigin({x: 300, y: 300}, testline12.getOriginX(), testline12.getOriginY())
+
+    console.log("Left: " + testline1.left + ", " + testline12.left + ", " + testline123.left + ".")
+    console.log("x1: " + testline1.x1 + ", " + testline12.x1 + ", " + testline123.x1 + ".")
+    console.log("y1: " + testline1.y1 + ", " + testline12.y1 + ", " + testline123.y1 + ".")
+    console.log("Center: " + testline1.getCenterPoint() + ", " + testline12.getCenterPoint() + ", " + testline123.getCenterPoint() + ".")
+
+    
+
+    // var group = new fabric.Group([testline1, testline2], {
+    //     left: 100,
+    //     top: 300,
+    // });
+
+    // canvas.add(group);
+    canvas.renderAll()
+
+}
+
+
+/*
+FOR MAINTAINING THE DATA MODEL
+*/
+
+// creates a new boundary elt object
+function boundaryElt(lineCoords, boundaryCoords, type)
+{
+    // assume line & boundary coordinates are given as (x1, y1, x2, y2)
+    console.assert(lineCoords.length == 4, "line coordinates wrong size")
+    console.assert(boundaryCoords.length == 4, "boundary coordinates wrong size")
+
+    boundaryElt = {line: lineCoords, boundary: boundaryCoords, type: type}
+
+    return boundaryElt
+}
+
+/*
+FOR DRAWING
+*/
+
 
 function initDraw(line_type)
 {
@@ -87,7 +167,9 @@ function initDraw(line_type)
     });
     curLineDrawer = new LineDrawer(line_type);
     DRAWING_MODE = true;
-    initLine()
+    
+    // Set the line drawer to listen
+    canvas.on('mouse:down', function(o) {curLineDrawer.startLine(o)});
 
     // currently not needed since we're not explicitly entering values
     // $('#value_input_wrapper').show();
@@ -98,19 +180,6 @@ function initDraw(line_type)
 /*
 FOR DRAWING LINES
  */
-
-function initLine()
-{
-    // currently not needed since we're not explicitly entering values
-    // if (!$('#value_input_wrapper').is(":visible"))
-    // {
-    //     return;
-    // }
-    // $('#value_input_wrapper').hide();
-
-    // Set the line drawer to listen;
-    canvas.on('mouse:down', function(o) {curLineDrawer.startLine(o)});
-}
 
 function LineDrawer(line_type)
 {
@@ -172,6 +241,7 @@ LineDrawer.prototype.startLine = function(o) {
         strokeWidth: LINE_WIDTH,
         originX: 'center',
         originY: 'center',
+        opacity: 1
     });
 
     canvas.add(this.line);
@@ -186,6 +256,7 @@ LineDrawer.prototype.updateLine = function(o){
     {
         return;
     }
+
     var pointer = canvas.getPointer(o.e);
 
     if (this.drawingBoundary) {  
@@ -309,8 +380,11 @@ LineDrawer.prototype.finishLine = function(o) {
     if (!this.drawingBoundary)
     {   
         this.drawingBoundary = true;
+
+        // start boundary vector at midpoint of line
         var midPoint = this.line.getCenterPoint();
         var boundaryPoints = [midPoint.x, midPoint.y, midPoint.x, midPoint.y]
+
         this.boundary = new fabric.Line(boundaryPoints, {
             stroke: boundary_colors[this.line_type],
             strokeWidth: LINE_WIDTH,
@@ -333,59 +407,25 @@ LineDrawer.prototype.finishLine = function(o) {
 
         canvas.remove(this.line)
         canvas.remove(this.boundary);
-        
-        var lineHeight = this.line.y2 - this.line.y1;
-        var lineWidth = this.line.x2 - this.line.x1;
-        var boundaryHeight = this.boundary.y2 - this.boundary.y1;
-        var boundaryWidth = this.boundary.x2 - this.boundary.x1;
-        
-        var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
-        var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth)* (180/Math.PI);
 
-        this.lineArrow = new fabric.Triangle({
-            width: ARROW_WIDTH,
-            height: ARROW_HEIGHT,
-            fill: this.line.stroke,
-            angle: 90 + lineAngle,
-            left: this.line.x2,
-            top: this.line.y2,
-            originX: 'center',
-            originY: 'center',
-        });
+        // create the arrow heads
+        arrowheads = makeArrowheads(this.line, this.boundary)
 
-        this.normalVector = new fabric.Triangle({
-            width: ARROW_WIDTH,
-            height: ARROW_HEIGHT,
-            fill: this.line.stroke,
-            angle: lineAngle,
-            left: this.boundary.x1,
-            top: this.boundary.y1,
-            originX: 'center',
-            originY: 'bottom',
-        });
 
-        this.boundaryArrow = new fabric.Triangle({
-            width: ARROW_WIDTH,
-            height: ARROW_HEIGHT,
-            fill: this.boundary.stroke,
-            angle: 90 + boundaryAngle,
-            left: this.boundary.x2,
-            top: this.boundary.y2,
-            originX: 'center',
-            originY: 'center',
-        });
+
 
         // create a group with the line and the boundary and draw it
-        var group = new fabric.Group([this.line, this.boundary, this.lineArrow, this.boundaryArrow, this.normalVector],{
+        var group = new fabric.Group([this.line, this.boundary].concat(arrowheads),{
             left: Math.min(this.line.x1,
-                        this.lineArrow.getBoundingRect().left,
-                        this.boundaryArrow.getBoundingRect().left,
-                        this.normalVector.getBoundingRect().left),
+                        arrowheads[0].getBoundingRect().left,
+                        arrowheads[1].getBoundingRect().left,
+                        arrowheads[2].getBoundingRect().left),
             top: Math.min(this.line.y1,
-                        this.lineArrow.getBoundingRect().top,
-                        this.boundaryArrow.getBoundingRect().top,
-                        this.normalVector.getBoundingRect().top),
+                        arrowheads[0].getBoundingRect().top,
+                        arrowheads[1].getBoundingRect().top,
+                        arrowheads[2].getBoundingRect().top),
         });
+
         group.line_type = this.line_type;
 
         groupCenter = group.getCenterPoint();
@@ -410,6 +450,7 @@ LineDrawer.prototype.finishLine = function(o) {
         canvas.forEachObject(function(obj){
             obj.selectable = true;
         });
+        canvas.deactivateAll().renderAll()
     }
 }
 
@@ -418,6 +459,55 @@ LineDrawer.prototype.kill = function() {
     canvas.off('mouse:move');
     canvas.off('mouse:up');
 }
+
+function makeArrowheads(line, boundary){      
+    console.assert(line.isType("line"), "argument is not line object")
+    console.assert(boundary.isType("line"), "argument is not line object")
+
+    var lineHeight = line.y2 - line.y1;
+    var lineWidth = line.x2 - line.x1;
+    var boundaryHeight = boundary.y2 - boundary.y1;
+    var boundaryWidth = boundary.x2 - boundary.x1;
+
+    var lineAngle = Math.atan2(lineHeight, lineWidth) * (180/Math.PI);
+    var boundaryAngle = Math.atan2(boundaryHeight, boundaryWidth)* (180/Math.PI);
+
+    lineArrow = new fabric.Triangle({
+        width: ARROW_WIDTH,
+        height: ARROW_HEIGHT,
+        fill: line.stroke,
+        angle: 90 + lineAngle,
+        left: line.x2,
+        top: line.y2,
+        originX: 'center',
+        originY: 'center',
+    });
+
+    normalVector = new fabric.Triangle({
+        width: ARROW_WIDTH,
+        height: ARROW_HEIGHT,
+        fill: line.stroke,
+        angle: lineAngle,
+        left: boundary.x1,
+        top: boundary.y1,
+        originX: 'center',
+        originY: 'bottom',
+    });
+
+    boundaryArrow = new fabric.Triangle({
+        width: ARROW_WIDTH,
+        height: ARROW_HEIGHT,
+        fill: boundary.stroke,
+        angle: 90 + boundaryAngle,
+        left: boundary.x2,
+        top: boundary.y2,
+        originX: 'center',
+        originY: 'center',
+    });
+
+    return [lineArrow, normalVector, boundaryArrow]
+}
+
 
 function straightenLine(bool){
     if (DRAWING_MODE)
@@ -444,27 +534,27 @@ function editCurrGroup(){
 }
 
 function restoreGroup(){
+    // assume group elements are selected
+    
+    canvas.renderOnAddRemove = false
     var objects = canvas.getActiveGroup();
 
     var line;
     var boundary;
-
-    objects.forEachObject(function(obj){
-        canvas.remove(obj);       
-    });
 
     var group = new fabric.Group(objects._objects, {
         left: objects.getBoundingRect().left,
         top: objects.getBoundingRect().top,
     });
 
-    canvas.add(group);
     
     group.forEachObject(function(obj){
         if (obj.opacity == 0.9){
+            console.log("boundary set!")
             boundary = obj;
         }
         else if (obj.opacity == 1){
+            console.log("line set!")
             line = obj;
         }
 
@@ -472,19 +562,48 @@ function restoreGroup(){
             left: obj.left - objects.left,
             top: obj.top - objects.top,
         });     
-    })   
-
-    if (boundary.x1 != (line.x1 + line.x2)/2 || boundary.y1 != (line.y1 + line.y2)/2){
-        boundary.set({
-            x1: (line.x1 + line.x2)/2,
-            y1: (line.y1 + line.y2)/2
-        })
-    }
-
-
+    })  
 
     group.setCoords();
-    canvas.renderAll();
+    canvas.deactivateAll().renderAll()
+
+    boundaryGroupX1 = boundary.getCenterPoint().x + boundary.x1
+    boundaryGroupY1 = boundary.getCenterPoint().y + boundary.y1
+    lineMedianX = (line.x1 + line.x2)/2
+    lineMedianY = (line.y1 + line.y2)/2
+
+    console.log(boundary.getCenterPoint().x + ", " + boundary.x1)
+    console.log(group._objects[1].getCenterPoint().x)
+
+
+    console.log("Boundary: (" + boundaryGroupX1 + ", " + boundaryGroupY1 + "); Line Median: (" + lineMedianX + ", " + lineMedianY + ")")
+
+    var boundaryNotOnMidpoint = (boundaryGroupX1 != lineMedianX) || (boundaryGroupY1 != lineMedianY)
+
+    // var boundaryNotOnMidpoint =  (boundary.getCenterPoint().x + boundary.x1 != line.getCenterPoint + (line.x1 + line.x2)/2) || 
+    //                      (boundary.getCenterPoint().y + boundary.y1 != line.getCenterPoint + (line.y1 + line.y2)/2)
+
+    if (boundaryNotOnMidpoint){
+        console.log("oops!")
+        // console.log("Line: (" + line.x1 + ", " + line.y1 + "), (" + line.x2 + ", " + line.y2 + ")")
+        // console.log("Boundary: (" + boundary.x1 + ", " + boundary.y1 + "), (" + boundary.x2 + ", " + boundary.y2 + ")")
+        
+
+        // group._objects[1].set({
+        //     x1: (line.getCenterPoint().x - boundary.getCenterPoint().x) + (line.x1 + line.x2)/2,
+        //     //y1: (line.y1 + line.y2)/2
+        // })
+    }
+
+    objects.forEachObject(function(obj){
+        canvas.remove(obj);       
+    });
+
+    
+    canvas.add(group);
+    console.log(group._objects[1].getCenterPoint())
+    canvas.deactivateAll().renderAll();
+    console.log(group._objects[1].getCenterPoint())
 }
 
 
@@ -511,22 +630,7 @@ function dispCoords(obj, points){
     return adjustedPoints;
 }
 
-function test(){
-    var testline1 = new fabric.Line([50, 50, 100, 100], {
-        stroke: "#6600CC",
-        strokeWidth: LINE_WIDTH,
-    });
 
-    var testline2 = new fabric.Line([30, 70, 150, 200], {
-        stroke: "#96705C",
-        strokeWidth: LINE_WIDTH,
-    });
-    
-    var group = new fabric.Group([testline1, testline2]);
-
-    canvas.add(group);
-
-}
 
 /*
 FOR DELETING LINES & OBJECTS
@@ -548,5 +652,4 @@ STUFF THAT STILL NEEDS TO BE DONE
 function compute(){
     // ASK BEN HOW TO DO
 }
-
 
