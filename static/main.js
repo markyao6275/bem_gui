@@ -50,6 +50,7 @@ function init(){
     $('#zoomIn_btn').click(function() {zoom(ZOOM_SCALE)});
     $('#zoomOut_btn').click(function() {zoom(1/ZOOM_SCALE)});
     $('#pan_btn').click(function(){initPan()})
+    $('#test_srv').click(function(){testServer()})
 
 
 
@@ -126,6 +127,13 @@ function test(){
 
     // canvas.add(group);
     canvas.renderAll()
+}
+
+function testServer(){
+    $('#testForm').show();
+}
+
+function submitTestValues(){
 
 }
 
@@ -391,6 +399,9 @@ LineDrawer.prototype.finishLine = function(o) {
             strokeWidth: LINE_WIDTH,
             originX: 'center',
             originY: 'center',
+            lockMovementX: true,
+            lockMovementY: true,
+            lockScalingFlip: true,
             opacity: 0.9
         });
         canvas.add(this.boundary);
@@ -411,6 +422,8 @@ LineDrawer.prototype.finishLine = function(o) {
 
         // create the arrow heads
         arrowheads = makeArrowheads(this.line, this.boundary)
+
+
 
 
         // // create a group with the line and the boundary and draw it
