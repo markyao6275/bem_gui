@@ -570,8 +570,6 @@ function dispCoords(obj, points){
     return adjustedPoints;
 }
 
-
-
 /*
 FOR DELETING LINES & OBJECTS
  */
@@ -585,12 +583,5 @@ function deleteSelection(){
     }
 }
 
-/*
-STUFF THAT STILL NEEDS TO BE DONE
- */
-
-function compute(){
-    // ASK BEN HOW TO DO
-}
 
 
